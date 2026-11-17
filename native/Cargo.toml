@@ -1,0 +1,47 @@
+[package]
+name = "subcast-engine"
+version = "0.2.8"
+license = "AGPL-3.0-only"
+description = "SubCast · 声渡 — overseas podcasts and YouTube with bilingual subtitles and AI Q&A"
+authors = ["Qiaomu"]
+edition = "2024"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tiny_http = "0.12"
+minisign-verify = "0.3"
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls", "socks", "gzip", "brotli", "system-proxy", "multipart"] }
+tokio = { version = "1", features = ["full"] }
+futures-util = "0.3"
+rusqlite = { version = "0.32", features = ["bundled"] }
+roxmltree = "0.20"
+regex = "1"
+sha1 = "0.10"
+sha2 = "0.10"
+hex = "0.4"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
+symphonia = { version = "0.5", features = ["mp3", "aac", "isomp4", "wav", "flac", "ogg", "vorbis", "pcm"] }
+anyhow = "1"
+once_cell = "1"
+urlencoding = "2"
+dirs = "5"
+flate2 = "1"
+tar = "0.4"
+base64 = "0.22"
+uuid = { version = "1", features = ["v4"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+whisper-rs = { version = "0.14", features = ["metal"] }
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+whisper-rs = "0.14"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true

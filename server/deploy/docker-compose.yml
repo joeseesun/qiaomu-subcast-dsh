@@ -1,0 +1,25 @@
+# SubCast shared-subtitles API on myvps (Qiaomu servers run apps with Docker Compose under /opt/qiaomu-apps).
+# Zero dependencies, so the stock Node image runs the code as is; the database lives in ./data on the host.
+services:
+  subcast-api:
+    image: node:22-alpine
+    container_name: qiaomu-subcast-api
+    restart: unless-stopped
+    working_dir: /app
+    command: ["node", "src/server.js"]
+    env_file: .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8787
+      DATA_DIR: /data
+    volumes:
+      - ./src:/app/src:ro
+      - ./package.json:/app/package.json:ro
+      - ./data:/data
+    ports:
+      - "127.0.0.1:8787:8787"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8787/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
