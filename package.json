@@ -2,7 +2,7 @@
   "name": "qiaomu-subcast-dsh",
   "private": true,
   "license": "AGPL-3.0-only",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "scripts": {
     "build": "tsc && vite build && node scripts/build-native.mjs",

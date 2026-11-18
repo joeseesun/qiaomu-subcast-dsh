@@ -9,6 +9,7 @@ import { api, errorText, llmChat, type Provider } from "../lib/api";
 import { AGENTS, agentOf, agentProvider, agentProviderId, detectAgents, useAgents, type AgentKind, type FoundAgent } from "../lib/agents";
 import { GROUPS } from "../lib/settings";
 import { DefaultButton } from "./SettingsDialog";
+import { ModelPicker } from "./ChatTools";
 import { Seg } from "./ReadingSettings";
 import { providerIcon } from "../lib/providerIcons";
 import { useStore } from "../store";
@@ -139,7 +140,12 @@ export function ModelSettings({ ProviderEditor }: { ProviderEditor: (props: { p:
         </aside>
         <section className="ms-detail">
           {agent ? <AgentDetail kind={agent} found={found?.find((f) => f.kind === agent)} p={p ?? agentProvider(agent)} onChange={update} />
-            : p?.protocol === "dsh" ? <div className="ms-head"><Mark id="deepseek" name="DSH" size={36} /><div><p className="ms-title">{t(p.name)} · {p.model}</p><p className="muted small">{t("跟随 DSH 的模型选择，在宿主中登录即可使用。")}</p><button className="btn sm" disabled={settings.chatProvider === p.id} onClick={() => void saveSettings({chatProvider:p.id, chatModel:"", modelChosen:true})}>{t("用于问答和导读")}</button></div></div>
+            : p?.protocol === "dsh" ? (
+              <>
+                <div className="ms-head"><Mark id="deepseek" name="DSH" size={36} /><div><p className="ms-title">{t(p.name)}</p><p className="muted small">{t("用于问答和导读")}</p></div></div>
+                <ModelPicker dshOnly />
+              </>
+            )
             : p ? (
               <>
                 <div className="ms-head"><Mark id={p.id} name={tr(p.name)} size={36} /><div><p className="ms-title">{tr(p.name)}</p><p className="muted small">{p.needsKey ? t("用你自己的 API Key，按用量付费给服务商。Key 只存在本机钥匙串。") : t("在你电脑上运行的模型服务，不需要 Key。")}</p></div></div>

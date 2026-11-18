@@ -46,7 +46,15 @@ export interface Segment { start: number; end: number; text: string }
 export interface Transcript { episodeId: string; source: string; language: string; segments: Segment[] }
 export interface SearchResult { title: string; author: string; cover?: string; feedUrl: string; genre?: string; episodes?: number }
 export interface ModelInfo { id: string; name: string; sizeMb: number; note: string; installed: boolean; /** Another app's copy, used in place (no download). */ from?: string | null }
-export interface Provider { id: string; name: string; protocol: "openai" | "anthropic" | "cli" | "dsh"; baseUrl: string; model: string; needsKey: boolean; keyUrl?: string; models?: string[]; group?: "relay" | "provider" | "local" | "cli" }
+export interface DshModelRef { provider: string; model: string }
+export interface DshModelChoice extends DshModelRef { providerName: string; name: string }
+export interface DshModelCatalog {
+  current: DshModelRef | null;
+  groups: {id: string; name: string; models: {id: string; name: string}[]}[];
+  failedProviders: number;
+}
+
+export interface Provider { id: string; name: string; protocol: "openai" | "anthropic" | "cli" | "dsh"; baseUrl: string; model: string; dshModel?: DshModelChoice; needsKey: boolean; keyUrl?: string; models?: string[]; group?: "relay" | "provider" | "local" | "cli" }
 export interface CloudAsr { id: string; name: string; note: string; protocol: "doubao" | "openai" | "deepseek"; baseUrl: string; model: string; models: string[]; keyUrl?: string; needsKey: boolean; chunkSecs?: number }
 export interface ChatMessage { role: "user" | "assistant"; content: string; /** Which model wrote an answer, for display. */ model?: string }
 
@@ -57,6 +65,7 @@ export interface AsrEvent { episodeId: string; stage: "download" | "transcribe" 
 
 export const api = {
   hostModel: () => invoke<{model: string; provider: string} | null>("dsh_model"),
+  hostModelCatalog: () => invoke<DshModelCatalog>("dsh_model_catalog"),
   addSubscription: (input: string) => invoke<{ show?: Show; episode?: Episode }>("add_subscription", { input }),
   refreshShow: (id: string) => invoke<Show>("refresh_show", { id }),
   refreshAll: () => invoke<{ shows: number; newEpisodes: number; skipped: boolean }>("refresh_all"),
@@ -147,10 +156,10 @@ export async function llmChat(opts: {
   const abort = () => void api.cancelJob(requestId);
   opts.signal?.addEventListener("abort", abort);
   try {
-    const { id, protocol, baseUrl, model } = opts.provider;
+    const { id, protocol, baseUrl, model, dshModel } = opts.provider;
     return await invoke<string>("llm_chat", {
       requestId,
-      provider: { id, protocol, baseUrl, model },
+      provider: { id, protocol, baseUrl, model, dshModel },
       system: opts.system,
       messages: opts.messages,
       maxTokens: opts.maxTokens,

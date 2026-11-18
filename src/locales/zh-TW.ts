@@ -1,5 +1,10 @@
 // 繁體中文 interface text, keyed by the Simplified Chinese source. Generated with OpenCC (cn → twp) and hand-checked.
 const dict: Record<string, string> = {
+  "DSH 模型": "DSH 模型",
+  "跟随 DSH 默认模型": "跟隨 DSH 預設模型",
+  "模型选择保存失败": "儲存模型選擇失敗",
+  "读取 DSH 模型失败，点击重试": "讀取 DSH 模型失敗，點擊重試",
+  "部分 DSH 服务商未返回模型": "部分 DSH 服務商未回傳模型",
   "请在 DSH 中登录并选择默认模型": "請在 DSH 中登入並選擇預設模型",
   "用于问答和导读": "用於問答和導讀",
   "跟随 DSH 的模型选择，在宿主中登录即可使用。": "跟隨 DSH 的模型選擇，在宿主中登入即可使用。",

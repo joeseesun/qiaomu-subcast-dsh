@@ -875,6 +875,7 @@ body.resizing iframe, body.resizing video { pointer-events: none; }
 .mp-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mp-pop { position: absolute; bottom: calc(100% + 8px); left: -4px; width: 280px; max-height: min(400px, 60vh); display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 36px rgba(0,0,0,.14); z-index: 20; overflow: hidden; }
 .mp-pop.prompts { width: 240px; }
+.mp-inline .mp-pop { position: relative; inset: auto; width: min(320px, 100%); margin-top: 8px; box-shadow: none; }
 .mp-search { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-bottom: 1px solid var(--line); color: var(--muted); flex: none; }
 .mp-search input { flex: 1; height: 30px; border: 0; padding: 0; background: transparent; box-shadow: none !important; font-size: 13px; }
 .mp-list { flex: 1; min-height: 0; overflow-y: auto; padding: 4px; }

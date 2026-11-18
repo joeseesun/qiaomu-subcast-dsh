@@ -1,4 +1,4 @@
-import { api, type CloudAsr, type Provider } from "./api";
+import { api, type CloudAsr, type DshModelChoice, type Provider } from "./api";
 import { t, tk, type LangSetting } from "./i18n";
 
 export interface Settings {
@@ -43,6 +43,8 @@ export interface Settings {
   ttsResource: string;
   /** The chat model picked in the chat box; "" means the chat provider's own model. */
   chatModel: string;
+  /** null or absent follows the DSH default. */
+  chatDshModel?: DshModelChoice | null;
   /** A standing instruction added to every question. */
   chatPrompt: string;
   chatPromptOn: boolean;
@@ -86,7 +88,7 @@ const o = (id: string, name: string, group: G, baseUrl: string, keyUrl: string |
   ({ id, name, group, protocol: "openai", baseUrl, model: models[0] ?? "", needsKey, keyUrl, models });
 
 export const PRESETS: Provider[] = [
-  { id: "dsh", name: tk("DSH 默认模型"), protocol: "dsh", baseUrl: "dsh", model: "DSH", needsKey: false, group: "provider" },
+  { id: "dsh", name: tk("DSH 模型"), protocol: "dsh", baseUrl: "dsh", model: "DSH", needsKey: false, group: "provider" },
   o("deepseek", "DeepSeek", "provider", "https://api.deepseek.com/v1", "https://platform.deepseek.com/api_keys", ["deepseek-flash", "deepseek-v4-pro"]),
   o("siliconflow", tk("硅基流动"), "relay", "https://api.siliconflow.cn/v1", "https://cloud.siliconflow.cn/account/ak", ["deepseek-ai/deepseek-v4-flash", "deepseek-ai/deepseek-v4-pro"]),
   o("tokendance", "TokenDance", "relay", "https://tokendance.space/gateway/v1", "https://tokendance.space/keys", ["deepseek-v4-flash", "qwen3.8-flash", "kimi-k3"]),

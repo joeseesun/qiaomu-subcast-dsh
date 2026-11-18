@@ -1,5 +1,10 @@
 // English interface text, keyed by the Simplified Chinese source. Run `npm run i18n` to find missing entries.
 const dict: Record<string, string> = {
+  "DSH 模型": "DSH models",
+  "跟随 DSH 默认模型": "Follow the DSH default",
+  "模型选择保存失败": "Could not save the model selection",
+  "读取 DSH 模型失败，点击重试": "Could not load DSH models. Retry",
+  "部分 DSH 服务商未返回模型": "Some DSH providers did not return models",
   "请在 DSH 中登录并选择默认模型": "Sign in and select a default model in DSH.",
   "用于问答和导读": "Use for questions and guides",
   "跟随 DSH 的模型选择，在宿主中登录即可使用。": "Uses the model selected in DSH. Sign in there to get started.",

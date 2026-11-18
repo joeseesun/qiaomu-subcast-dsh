@@ -3,9 +3,23 @@ import test from "node:test";
 import { createHostModel } from "../host/model.js";
 
 test("DSH follows the selected model, preserves turns and forwards text only once", async () => {
-  let selected = "first", captured, teardown;
-  const ctx = {inject(_, start) {
-    teardown = start({
+  let selected = "first", captured;
+  const cleanups = [];
+  const ctx = {inject(names, start) {
+    if (names.includes("sessionController")) {
+      cleanups.push(start({sessionController:{ async modelCatalog() {
+        return {
+          default: {provider:"deepseek", model:selected},
+          groups: [
+            {id:"deepseek", name:"DeepSeek", models:[{id:"second", name:"DeepSeek Second"}]},
+            {id:"other", name:"Other provider", models:[{id:"second", name:"Other Second"}]},
+          ],
+          failures: [{id:"unavailable", message:"Provider diagnostics"}],
+        };
+      }}}));
+      return;
+    }
+    cleanups.push(start({
       agentDefaultModel:{currentSelection:() => ({provider:"deepseek", model:selected})},
       llm:{async *stream(request) {
         captured = request;
@@ -13,7 +27,7 @@ test("DSH follows the selected model, preserves turns and forwards text only onc
         yield {type:"block-end",block:{type:"text",text:"hello"}};
         yield {type:"finish",reason:{kind:"stop"}};
       }},
-    });
+    }));
   }};
   const model = createHostModel(ctx);
   assert.equal(model.selection().model, "first");
@@ -28,7 +42,18 @@ test("DSH follows the selected model, preserves turns and forwards text only onc
   assert.equal(captured.model, "second");
   assert.deepEqual(captured.messages.map(m => m.role), ["system","user","assistant","user"]);
   assert.match(captured.messages[0].content[0].text, /00:03/);
-  teardown();
+  const catalog = await model.catalog();
+  assert.deepEqual(catalog.current, {provider:"deepseek", model:"second"});
+  assert.deepEqual(catalog.groups.map((group) => group.id), ["deepseek", "other"]);
+  assert.equal(catalog.failedProviders, 1);
+  await model.chat({
+    requestId:"q2", system:"Test the explicit route", messages:[{role:"user", content:"Hello"}],
+    provider:{model:"ignored", dshModel:{provider:"other", model:"second", name:"Other Second"}},
+  }, () => {});
+  assert.equal(captured.provider, "other");
+  assert.equal(captured.model, "second");
+  assert.equal(model.selection().provider, "deepseek");
+  for (const cleanup of cleanups) cleanup();
   assert.equal(model.selection(), null);
   await assert.rejects(model.chat({}, () => {}), /DSH/);
 });

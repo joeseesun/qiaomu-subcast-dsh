@@ -71,6 +71,7 @@ export function createSurface(directory, hostModel) {
       }
       const {method, args} = JSON.parse(Buffer.concat(chunks).toString());
       if (method === "dsh_model") return json(res, 200, {value:hostModel?.selection() ?? null});
+      if (method === "dsh_model_catalog") return json(res, 200, {value:await hostModel.catalog()});
       if (method === "llm_chat" && args?.provider?.protocol === "dsh") {
         if (!hostModel) throw Error("DSH model service is unavailable");
         return json(res, 200, {value:await hostModel.chat(args, emit)});

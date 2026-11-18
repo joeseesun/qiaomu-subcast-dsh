@@ -1,7 +1,7 @@
 import { agentProviderId, useAgents } from "../lib/agents";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { BookOpen, Check, ChevronsUpDown, Clock, Languages, Lightbulb, MessageCircleQuestion, MessageSquareText, Pencil, Plus, Scale, Search, Settings2, Share2, Trash2, TrendingUp, User, Wrench } from "lucide-react";
-import { api, type Provider } from "../lib/api";
+import { api, type DshModelCatalog, type DshModelChoice, type Provider } from "../lib/api";
 import { PROMPT_HINTS, quickPrompts, type QuickPrompt } from "../lib/settings";
 import { providerFor, useStore } from "../store";
 import { Modal } from "./Chrome";
@@ -32,9 +32,9 @@ export function useChatModels(): Group[] | null {
     let live = true;
     // Local agents (Claude Code and the like) have no model of their own set: "" means the agent's default.
     const found = new Set((agents ?? []).filter((f) => f.login !== "needsLogin").map((f) => agentProviderId(f.kind)));
-    const ps = Object.values(settings.providers).filter((p) => p.protocol === "cli" ? found.has(p.id) : p.baseUrl && p.model);
+    const ps = Object.values(settings.providers).filter((p) => p.protocol !== "dsh" && (p.protocol === "cli" ? found.has(p.id) : p.baseUrl && p.model));
     const inUse = (p: Provider) => p.id === settings.chatProvider || p.id === settings.translateProvider;
-    void Promise.all(ps.map((p) => ((p.protocol === "cli" || p.protocol === "dsh") ? Promise.resolve(true) : p.needsKey ? api.hasApiKey(p.id) : Promise.resolve(inUse(p))))).then((ok) => {
+    void Promise.all(ps.map((p) => (p.protocol === "cli" ? Promise.resolve(true) : p.needsKey ? api.hasApiKey(p.id) : Promise.resolve(inUse(p))))).then((ok) => {
       if (!live) return;
       const usable = ps.filter((_, i) => ok[i]).sort((a, b) => Number(b.id === settings.chatProvider) - Number(a.id === settings.chatProvider));
       setGroups(usable.map((p) => ({
@@ -49,12 +49,25 @@ export function useChatModels(): Group[] | null {
   return groups;
 }
 
-/** The model switcher in the chat box: a searchable list grouped by service. The choice applies from the next question. */
-export function ModelPicker({ disabled }: { disabled?: boolean }) {
+interface ModelOption {
+  provider: Provider;
+  model: string;
+  label: string;
+  dshModel?: DshModelChoice;
+}
+
+interface PickerGroup { id: string; name: string; options: ModelOption[] }
+
+/** The choice applies to the next request and is saved in SubCast settings. */
+export function ModelPicker({ disabled, dshOnly = false }: { disabled?: boolean; dshOnly?: boolean }) {
   const groups = useChatModels();
   const settings = useStore((s) => s.settings);
-  const { saveSettings, openSettings } = useStore.getState();
+  const { saveSettings, openSettings, notify } = useStore.getState();
   const cur = providerFor(settings, "chat");
+  const dsh = settings.providers.dsh;
+  const [catalog, setCatalog] = useState<DshModelCatalog | null>(null);
+  const [catalogFailed, setCatalogFailed] = useState(false);
+  const [attempt, retry] = useState(0);
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
@@ -62,11 +75,60 @@ export function ModelPicker({ disabled }: { disabled?: boolean }) {
   const search = useRef<HTMLInputElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLDivElement>(null);
+  const listId = useId();
 
+  useEffect(() => {
+    if (!open || !dsh) return;
+    let live = true;
+    setCatalogFailed(false);
+    void api.hostModelCatalog().then(
+      (value) => { if (live) setCatalog(value); },
+      () => { if (live) { setCatalog(null); setCatalogFailed(true); } },
+    );
+    return () => { live = false; };
+  }, [open, dsh, attempt]);
+
+  const available: PickerGroup[] = [];
+  if (dsh) {
+    available.push({
+      id: "dsh-default", name: t(dsh.name),
+      options: [{ provider: dsh, model: catalog?.current?.model || dsh.model, label: t("跟随 DSH 默认模型") }],
+    });
+    for (const group of catalog?.groups ?? []) {
+      available.push({
+        id: "dsh:" + group.id, name: group.name,
+        options: group.models.map((model) => ({
+          provider: dsh, model: model.id, label: model.name,
+          dshModel: { provider: group.id, providerName: group.name, model: model.id, name: model.name },
+        })),
+      });
+    }
+  }
+  if (!dshOnly) {
+    for (const group of groups ?? []) {
+      available.push({
+        id: group.provider.id, name: t(group.provider.name),
+        options: group.models.map((model) => ({ provider: group.provider, model, label: shortModel(model) || t("默认模型") })),
+      });
+    }
+  }
   const words = q.toLowerCase().split(/\s+/).filter(Boolean);
-  const shown = (groups ?? []).map((g) => ({ ...g, models: g.models.filter((m) => words.every((w) => `${m} ${g.provider.name} ${t(g.provider.name)}`.toLowerCase().includes(w))) })).filter((g) => g.models.length);
-  const flat = shown.flatMap((g) => g.models.map((model) => ({ provider: g.provider, model })));
-  const isCur = (o: { provider: Provider; model: string }) => o.provider.id === cur?.id && o.model === cur?.model;
+  const shown = available.map((group) => ({
+    ...group,
+    options: group.options.filter((option) => words.every((word) =>
+      [option.model, option.label, group.name, option.dshModel?.provider].join(" ").toLowerCase().includes(word),
+    )),
+  })).filter((group) => group.options.length);
+  const flat = shown.flatMap((group) => group.options);
+  const isCur = (option: ModelOption) => {
+    if (option.provider.id !== cur?.id) return false;
+    if (option.provider.protocol !== "dsh") return option.model === cur.model;
+    return option.dshModel
+      ? option.dshModel.provider === cur.dshModel?.provider && option.model === cur.dshModel.model
+      : !cur.dshModel;
+  };
+  const selected = dshOnly && cur?.protocol !== "dsh" ? undefined : cur;
+  const triggerText = selected?.dshModel?.name || (selected ? shortModel(selected.model) || t(selected.name) : t("选择模型"));
 
   useEffect(() => {
     if (!open) return;
@@ -74,15 +136,20 @@ export function ModelPicker({ disabled }: { disabled?: boolean }) {
     document.addEventListener("pointerdown", h);
     return () => document.removeEventListener("pointerdown", h);
   }, [open]);
-  useEffect(() => { setActive(q ? 0 : Math.max(0, flat.findIndex(isCur))); }, [q, open]);
+  useEffect(() => { setActive(q ? 0 : Math.max(0, flat.findIndex(isCur))); }, [q, open, catalog, groups]);
   useEffect(() => { list.current?.querySelector(".mp-row.is-active")?.scrollIntoView({ block: "nearest" }); }, [active, open]);
 
-  if (groups && !groups.length) {
+  if (!dsh && groups && !groups.length) {
     return <button type="button" className="mp-trigger" onClick={() => openSettings("model")} disabled={disabled}><span className="mp-name">{t("连接模型")}</span></button>;
   }
   const close = () => { setOpen(false); trigger.current?.focus(); };
-  const choose = (o: { provider: Provider; model: string }) => {
-    void saveSettings({ chatProvider: o.provider.id, chatModel: o.model === o.provider.model ? "" : o.model, modelChosen: true });
+  const choose = (option: ModelOption) => {
+    void saveSettings({
+      chatProvider: option.provider.id,
+      chatModel: option.provider.protocol === "dsh" || option.model === option.provider.model ? "" : option.model,
+      chatDshModel: option.dshModel ?? null,
+      modelChosen: true,
+    }).catch(() => notify(t("模型选择保存失败")));
     close();
   };
   const onKey = (e: React.KeyboardEvent) => {
@@ -96,39 +163,42 @@ export function ModelPicker({ disabled }: { disabled?: boolean }) {
 
   let n = -1;
   return (
-    <div className="mp" ref={wrap}>
-      <button ref={trigger} type="button" className="mp-trigger" aria-haspopup="listbox" aria-expanded={open} disabled={disabled || !groups}
-        title={cur ? t("{name} · {model}（切换后从下一个问题开始生效）", { name: t(cur.name), model: cur.model || t("默认模型") }) : ""}
+    <div className={dshOnly ? "mp mp-inline" : "mp"} ref={wrap}>
+      <button ref={trigger} type="button" className="mp-trigger" aria-haspopup="listbox" aria-expanded={open} disabled={disabled || (!dsh && !groups)}
+        title={selected ? t("{name} · {model}（切换后从下一个问题开始生效）", { name: t(selected.name), model: triggerText }) : ""}
         onClick={() => { if (open) { setOpen(false); return; } setQ(""); setOpen(true); requestAnimationFrame(() => search.current?.focus()); }}>
-        <span className="mp-name">{cur ? (cur.model ? shortModel(cur.model) : t(cur.name)) : t("选择模型")}</span>
+        <span className="mp-name">{triggerText}</span>
         <ChevronsUpDown size={12} />
       </button>
       {open && (
         <div className="mp-pop" onKeyDown={onKey}>
           <div className="mp-search">
             <Search size={14} />
-            <input ref={search} value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("搜索模型")} role="combobox" aria-expanded aria-controls="mp-list" aria-autocomplete="list" spellCheck={false} />
+            <input ref={search} value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("搜索模型")} role="combobox" aria-expanded aria-controls={listId} aria-autocomplete="list" spellCheck={false} />
           </div>
-          <div className="mp-list" id="mp-list" role="listbox" ref={list}>
+          <div className="mp-list" id={listId} role="listbox" ref={list}>
+            {dsh && !catalog && !catalogFailed && <p className="mp-empty" role="status">{t("正在加载…")}</p>}
+            {catalogFailed && <button type="button" className="mp-foot" onClick={() => retry(attempt + 1)}>{t("读取 DSH 模型失败，点击重试")}</button>}
+            {!!catalog?.failedProviders && <p className="mp-empty">{t("部分 DSH 服务商未返回模型")}</p>}
             {!flat.length && <p className="mp-empty">{t("没有匹配的模型")}</p>}
-            {shown.map((g) => (
-              <div key={g.provider.id} role="group" aria-label={t(g.provider.name)}>
-                <p className="mp-group">{t(g.provider.name)}</p>
-                {g.models.map((m) => {
+            {shown.map((group) => (
+              <div key={group.id} role="group" aria-label={group.name}>
+                <p className="mp-group">{group.name}</p>
+                {group.options.map((option) => {
                   const i = ++n;
-                  const o = { provider: g.provider, model: m };
+                  const current = isCur(option);
                   return (
-                    <div key={m || "default"} role="option" aria-selected={isCur(o)} title={m} className={`mp-row ${isCur(o) ? "is-current" : ""} ${i === active ? "is-active" : ""}`}
-                      onMouseEnter={() => setActive(i)} onMouseDown={(e) => e.preventDefault()} onClick={() => choose(o)}>
-                      <span className="mp-check">{isCur(o) && <Check size={14} />}</span>
-                      <span className="mp-model">{m ? shortModel(m) : t("默认模型")}</span>
+                    <div key={option.model || "default"} role="option" aria-selected={current} title={option.model} className={`mp-row ${current ? "is-current" : ""} ${i === active ? "is-active" : ""}`}
+                      onMouseEnter={() => setActive(i)} onMouseDown={(e) => e.preventDefault()} onClick={() => choose(option)}>
+                      <span className="mp-check">{current && <Check size={14} />}</span>
+                      <span className="mp-model">{option.label}</span>
                     </div>
                   );
                 })}
               </div>
             ))}
           </div>
-          <button type="button" className="mp-foot" onClick={() => { setOpen(false); openSettings("model"); }}><Plus size={14} /> {t("添加或管理模型")}</button>
+          {!dshOnly && <button type="button" className="mp-foot" onClick={() => { setOpen(false); openSettings("model"); }}><Plus size={14} /> {t("添加或管理模型")}</button>}
         </div>
       )}
     </div>

@@ -15,16 +15,35 @@ export function createHostModel(ctx) {
       for (const controller of jobs.values()) controller.abort();
     };
   });
+  let sessionController;
+  ctx.inject(["sessionController"], scope => {
+    sessionController = scope.sessionController;
+    return () => { sessionController = undefined; };
+  });
   function selection() {
     const current = services?.agentDefaultModel.currentSelection();
     return current?.model && current?.provider ? {model:current.model, provider:current.provider} : null;
   }
   return {
     selection,
+    async catalog() {
+      if (!sessionController) throw Error("DSH model catalog is unavailable");
+      const { groups, default: current, failures } = await sessionController.modelCatalog();
+      return {
+        current: current?.provider && current?.model ? {provider: current.provider, model: current.model} : null,
+        groups: groups.map(({id, name, models}) => ({
+          id, name, models: models.map(({id, name}) => ({id, name})),
+        })),
+        failedProviders: failures.length,
+      };
+    },
     cancel: id => jobs.get(id)?.abort(),
     async chat(args, emit) {
-      const model = selection();
+      const chosen = args.provider?.dshModel;
+      const model = chosen == null ? selection() : {provider: chosen.provider, model: chosen.model};
       if (!model) throw Error("请在 DSH 中登录并选择默认模型");
+      if (!services || typeof model.provider !== "string" || !model.provider || typeof model.model !== "string" || !model.model)
+        throw Error("Invalid DSH model selection");
       const {requestId, system, messages} = args;
       if (typeof requestId !== "string" || typeof system !== "string" || !Array.isArray(messages) || jobs.has(requestId))
         throw Error("Invalid SubCast chat request");

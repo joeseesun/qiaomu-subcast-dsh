@@ -1,5 +1,10 @@
 // Japanese interface text, keyed by the Simplified Chinese source. Run `npm run i18n` to find missing entries.
 const dict: Record<string, string> = {
+  "DSH 模型": "DSH のモデル",
+  "跟随 DSH 默认模型": "DSH の既定モデルに従う",
+  "模型选择保存失败": "モデルの選択を保存できませんでした",
+  "读取 DSH 模型失败，点击重试": "DSH のモデルを読み込めませんでした。再試行",
+  "部分 DSH 服务商未返回模型": "一部の DSH プロバイダーからモデルを取得できませんでした",
   "请在 DSH 中登录并选择默认模型": "DSH にログインし、既定のモデルを選択してください。",
   "用于问答和导读": "質問とガイドに使う",
   "跟随 DSH 的模型选择，在宿主中登录即可使用。": "DSH で選択したモデルを使います。DSH にログインしてください。",
