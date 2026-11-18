@@ -54,6 +54,7 @@ interface ModelOption {
   model: string;
   label: string;
   dshModel?: DshModelChoice;
+  followHostDefault?: boolean;
 }
 
 interface PickerGroup { id: string; name: string; options: ModelOption[] }
@@ -90,9 +91,13 @@ export function ModelPicker({ disabled, dshOnly = false }: { disabled?: boolean;
 
   const available: PickerGroup[] = [];
   if (dsh) {
+    const account = catalog ? catalog.accountDefault : settings.dshAccountDefault;
     available.push({
       id: "dsh-default", name: t(dsh.name),
-      options: [{ provider: dsh, model: catalog?.current?.model || dsh.model, label: t("跟随 DSH 默认模型") }],
+      options: [
+        { provider: dsh, model: account?.model || "", label: t("优先使用 DeepSeek 账号") },
+        { provider: dsh, model: catalog?.current?.model || dsh.model, label: t("跟随 DSH 默认模型"), followHostDefault: true },
+      ],
     });
     for (const group of catalog?.groups ?? []) {
       available.push({
@@ -123,9 +128,10 @@ export function ModelPicker({ disabled, dshOnly = false }: { disabled?: boolean;
   const isCur = (option: ModelOption) => {
     if (option.provider.id !== cur?.id) return false;
     if (option.provider.protocol !== "dsh") return option.model === cur.model;
-    return option.dshModel
-      ? option.dshModel.provider === cur.dshModel?.provider && option.model === cur.dshModel.model
-      : !cur.dshModel;
+    if (option.followHostDefault) return settings.chatDshModel === "host-default";
+    if (!option.dshModel) return settings.chatDshModel == null;
+    if (cur.preferDshAccount) return false;
+    return option.dshModel.provider === cur.dshModel?.provider && option.model === cur.dshModel.model;
   };
   const selected = dshOnly && cur?.protocol !== "dsh" ? undefined : cur;
   const triggerText = selected?.dshModel?.name || (selected ? shortModel(selected.model) || t(selected.name) : t("选择模型"));
@@ -147,7 +153,7 @@ export function ModelPicker({ disabled, dshOnly = false }: { disabled?: boolean;
     void saveSettings({
       chatProvider: option.provider.id,
       chatModel: option.provider.protocol === "dsh" || option.model === option.provider.model ? "" : option.model,
-      chatDshModel: option.dshModel ?? null,
+      chatDshModel: option.followHostDefault ? "host-default" : option.dshModel ?? null,
       modelChosen: true,
     }).catch(() => notify(t("模型选择保存失败")));
     close();
@@ -188,7 +194,7 @@ export function ModelPicker({ disabled, dshOnly = false }: { disabled?: boolean;
                   const i = ++n;
                   const current = isCur(option);
                   return (
-                    <div key={option.model || "default"} role="option" aria-selected={current} title={option.model} className={`mp-row ${current ? "is-current" : ""} ${i === active ? "is-active" : ""}`}
+                    <div key={option.followHostDefault ? "host-default" : option.model || "default"} role="option" aria-selected={current} title={option.model} className={`mp-row ${current ? "is-current" : ""} ${i === active ? "is-active" : ""}`}
                       onMouseEnter={() => setActive(i)} onMouseDown={(e) => e.preventDefault()} onClick={() => choose(option)}>
                       <span className="mp-check">{current && <Check size={14} />}</span>
                       <span className="mp-model">{option.label}</span>

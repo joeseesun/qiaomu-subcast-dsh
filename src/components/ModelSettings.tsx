@@ -1,5 +1,4 @@
-// Settings › AI 模型: what answers questions and translates, in plain words. Local agents the listener already has
-// (Claude Code and the like) come first and need no key; API services follow, the long list folded away.
+// Settings › AI 模型: the DSH model, API providers, and local CLI tools.
 import { useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Check, ChevronDown, Copy, Loader2, RefreshCw, TerminalSquare } from "lucide-react";
@@ -12,7 +11,7 @@ import { DefaultButton } from "./SettingsDialog";
 import { ModelPicker } from "./ChatTools";
 import { Seg } from "./ReadingSettings";
 import { providerIcon } from "../lib/providerIcons";
-import { useStore } from "../store";
+import { providerFor, useStore } from "../store";
 import { t, tk, tr, useLang } from "../lib/i18n";
 
 /** The service's own mark where we have it, else its initials on a tint. */
@@ -42,16 +41,18 @@ export function ModelSettings({ ProviderEditor }: { ProviderEditor: (props: { p:
   const [moreAgents, setMoreAgents] = useState(false);
   const [keys, setKeys] = useState<Record<string, boolean>>({});
   useEffect(() => { if (found == null) void detectAgents(); }, []);
-  const apiProviders = useMemo(() => Object.values(settings.providers).filter((p) => p.protocol !== "cli"), [settings.providers]);
+  const apiProviders = useMemo(() => Object.values(settings.providers).filter((p) => p.protocol !== "cli" && p.protocol !== "dsh"), [settings.providers]);
   useEffect(() => {
     void Promise.all(apiProviders.filter((p) => p.needsKey).map(async (p) => [p.id, await api.hasApiKey(p.id)] as const)).then((r) => setKeys(Object.fromEntries(r)));
   }, [apiProviders.length, editing]);
 
+  const dsh = settings.providers.dsh;
+  const activeDsh = settings.chatProvider === dsh?.id ? providerFor(settings, "chat") : dsh;
   const used = (id: string) => (settings.translateProvider === id && settings.translateMode !== "google" ? t("默认") : "");
   const ready = (p: Provider) => !p.needsKey || keys[p.id];
   const inUse = (id: string) => settings.chatProvider === id || settings.translateProvider === id;
   // Up front: what's in use, then what has a key, then the recommended ones; three at most (plus the open one).
-  const rank = (p: Provider) => (p.protocol === "dsh" ? 0 : inUse(p.id) ? 0 : p.needsKey && keys[p.id] ? 1 : RECOMMENDED.includes(p.id) ? 2 + RECOMMENDED.indexOf(p.id) : 9);
+  const rank = (p: Provider) => (inUse(p.id) ? 0 : p.needsKey && keys[p.id] ? 1 : RECOMMENDED.includes(p.id) ? 2 + RECOMMENDED.indexOf(p.id) : 9);
   const ranked = apiProviders.filter((p) => p.id !== "custom" && rank(p) < 9).sort((a, b) => rank(a) - rank(b));
   const mine = ranked.filter((p, i) => i < SHOWN || p.id === editing);
   const rest = apiProviders.filter((p) => !mine.includes(p) && p.id !== "custom");
@@ -71,8 +72,9 @@ export function ModelSettings({ ProviderEditor }: { ProviderEditor: (props: { p:
   const [advanced, setAdvanced] = useState(split);
   // Every model the listener can actually pick: detected agents plus API services that are ready.
   const choices = [
-    ...(found ?? []).map((f) => ({ id: agentProviderId(f.kind), name: AGENTS[f.kind].name })),
+    ...(dsh ? [{ id: dsh.id, name: tr(dsh.name) }] : []),
     ...apiProviders.filter(ready).map((x) => ({ id: x.id, name: tr(x.name) })),
+    ...(found ?? []).map((f) => ({ id: agentProviderId(f.kind), name: AGENTS[f.kind].name })),
   ];
   const withCurrent = (id: string) => (choices.some((c) => c.id === id) || !settings.providers[id] ? choices : [...choices, { id, name: nameOf(id) }]);
 
@@ -90,29 +92,17 @@ export function ModelSettings({ ProviderEditor }: { ProviderEditor: (props: { p:
       </div>
       <div className="ms-split">
         <aside className="ms-list">
-          <div className="ms-group-h">
-            <span>{t("本机 AI")}<em>{t("用你已有的订阅，不需要 Key")}</em></span>
-            <button className="icon-btn sm" title={t("重新检测")} aria-label={t("重新检测")} onClick={() => void detectAgents()} disabled={checking}>{checking ? <Loader2 size={13} className="spin" /> : <RefreshCw size={13} />}</button>
-          </div>
-          {found == null ? <p className="muted small ms-empty"><Loader2 size={12} className="spin" /> {t("正在查找本机的 AI 工具…")}</p>
-            : found.length === 0 ? <p className="muted small ms-empty">{t("没有找到。装好 Claude Code 或 Codex 并登录后，点上面的刷新。")}</p>
-            : shownAgents.map((f) => {
-              const id = agentProviderId(f.kind);
-              const st = STATUS[f.login];
-              return (
-                <button key={f.kind} className={`ms-item ${editing === id ? "on" : ""}`} onClick={() => setEditing(id)}>
-                  <Mark id={id} name={AGENTS[f.kind].name} />
-                  <span className="ms-item-name">{AGENTS[f.kind].name}<small>{used(id) || t(st.text)}</small></span>
-                  <span className={`ms-dot ${st.tone}`} aria-label={t(st.text)} />
-                </button>
-              );
-            })}
-          {(moreAgents ? agents.length > SHOWN : agents.length > shownAgents.length) && <button className="ms-more" aria-expanded={moreAgents} onClick={() => setMoreAgents(!moreAgents)}><ChevronDown size={13} className={moreAgents ? "flip" : ""} /> {moreAgents ? t("收起") : t("更多（{n}）", { n: agents.length - shownAgents.length })}</button>}
+          {dsh && (
+            <button className={`ms-item ${editing === dsh.id ? "on" : ""}`} onClick={() => setEditing(dsh.id)}>
+              <Mark id="deepseek" name={tr(dsh.name)} />
+              <span className="ms-item-name">{tr(dsh.name)}<small>{activeDsh?.dshModel?.name ?? activeDsh?.model}</small></span>
+            </button>
+          )}
           <div className="ms-group-h"><span>{t("API 模型")}<em>{t("填 Key 使用，按量付费")}</em></span></div>
           {mine.map((x) => (
             <button key={x.id} className={`ms-item ${editing === x.id ? "on" : ""}`} onClick={() => setEditing(x.id)}>
               <Mark id={x.id} name={tr(x.name)} />
-              <span className="ms-item-name">{tr(x.name)}<small>{used(x.id) || (x.protocol === "dsh" ? x.model : ready(x) ? t("已填 Key") : t("未设置"))}</small></span>
+              <span className="ms-item-name">{tr(x.name)}<small>{used(x.id) || (ready(x) ? t("已填 Key") : t("未设置"))}</small></span>
               <span className={`ms-dot ${ready(x) ? "ok" : "idle"}`} />
             </button>
           ))}
@@ -137,6 +127,24 @@ export function ModelSettings({ ProviderEditor }: { ProviderEditor: (props: { p:
               </div>
             ) : null;
           })}
+          <div className="ms-group-h">
+            <span>{t("本机 AI")}<em>{t("用你已有的订阅，不需要 Key")}</em></span>
+            <button className="icon-btn sm" title={t("重新检测")} aria-label={t("重新检测")} onClick={() => void detectAgents()} disabled={checking}>{checking ? <Loader2 size={13} className="spin" /> : <RefreshCw size={13} />}</button>
+          </div>
+          {found == null ? <p className="muted small ms-empty"><Loader2 size={12} className="spin" /> {t("正在查找本机的 AI 工具…")}</p>
+            : found.length === 0 ? <p className="muted small ms-empty">{t("没有找到。装好 Claude Code 或 Codex 并登录后，点上面的刷新。")}</p>
+            : shownAgents.map((f) => {
+              const id = agentProviderId(f.kind);
+              const st = STATUS[f.login];
+              return (
+                <button key={f.kind} className={`ms-item ${editing === id ? "on" : ""}`} onClick={() => setEditing(id)}>
+                  <Mark id={id} name={AGENTS[f.kind].name} />
+                  <span className="ms-item-name">{AGENTS[f.kind].name}<small>{used(id) || t(st.text)}</small></span>
+                  <span className={`ms-dot ${st.tone}`} aria-label={t(st.text)} />
+                </button>
+              );
+            })}
+          {(moreAgents ? agents.length > SHOWN : agents.length > shownAgents.length) && <button className="ms-more" aria-expanded={moreAgents} onClick={() => setMoreAgents(!moreAgents)}><ChevronDown size={13} className={moreAgents ? "flip" : ""} /> {moreAgents ? t("收起") : t("更多（{n}）", { n: agents.length - shownAgents.length })}</button>}
         </aside>
         <section className="ms-detail">
           {agent ? <AgentDetail kind={agent} found={found?.find((f) => f.kind === agent)} p={p ?? agentProvider(agent)} onChange={update} />

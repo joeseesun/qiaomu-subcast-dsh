@@ -185,8 +185,10 @@ export function providerFor(settings: Settings, use: "chat" | "translate") {
   if (use === "translate") return settings.providers[settings.translateProvider];
   const p = settings.providers[settings.chatProvider];
   if (p?.protocol === "dsh") {
-    const chosen = settings.chatDshModel;
-    return chosen ? { ...p, name: chosen.providerName, model: chosen.model, dshModel: chosen } : p;
+    const preference = settings.chatDshModel;
+    if (preference === "host-default") return p;
+    const chosen = preference ?? settings.dshAccountDefault;
+    return { ...p, preferDshAccount: preference == null, ...(chosen && { name: chosen.providerName, model: chosen.model, dshModel: chosen }) };
   }
   return p && settings.chatModel ? { ...p, model: settings.chatModel } : p;
 }

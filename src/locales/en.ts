@@ -1,5 +1,6 @@
 // English interface text, keyed by the Simplified Chinese source. Run `npm run i18n` to find missing entries.
 const dict: Record<string, string> = {
+  "优先使用 DeepSeek 账号": "Prefer the DeepSeek account",
   "DSH 模型": "DSH models",
   "跟随 DSH 默认模型": "Follow the DSH default",
   "模型选择保存失败": "Could not save the model selection",

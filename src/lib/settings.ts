@@ -1,4 +1,4 @@
-import { api, type CloudAsr, type DshModelChoice, type Provider } from "./api";
+import { api, type CloudAsr, type DshModelChoice, type DshModelPreference, type Provider } from "./api";
 import { t, tk, type LangSetting } from "./i18n";
 
 export interface Settings {
@@ -43,8 +43,9 @@ export interface Settings {
   ttsResource: string;
   /** The chat model picked in the chat box; "" means the chat provider's own model. */
   chatModel: string;
-  /** null or absent follows the DSH default. */
-  chatDshModel?: DshModelChoice | null;
+  /** null or absent prefers DeepSeek Account. */
+  chatDshModel?: DshModelPreference;
+  dshAccountDefault?: DshModelChoice | null;
   /** A standing instruction added to every question. */
   chatPrompt: string;
   chatPromptOn: boolean;
@@ -195,13 +196,14 @@ export async function loadSettings(): Promise<Settings> {
   for (const p of PRESETS) providers[p.id] = { ...p, ...(raw.providers?.[p.id] ?? {}), keyUrl: p.keyUrl, models: p.models, needsKey: p.needsKey, name: p.name, group: p.group };
   const cloudAsr: Record<string, CloudAsr> = {};
   for (const a of ASR_SERVICES) cloudAsr[a.id] = { ...a, ...(raw.cloudAsr?.[a.id] ?? {}), name: a.name, note: a.note, models: a.models, keyUrl: a.keyUrl, needsKey: a.needsKey, protocol: a.protocol };
-  providers.dsh = { ...DEFAULTS.providers.dsh, model: host?.model || "DSH" };
-  return migrate({ ...DEFAULTS, ...raw, providers, cloudAsr });
+  providers.dsh = { ...DEFAULTS.providers.dsh, model: host?.current?.model || "DSH" };
+  return migrate({ ...DEFAULTS, ...raw, providers, cloudAsr, dshAccountDefault: host?.accountDefault });
 }
 
 /** 0.2.6 removed several switches; carry what each one meant into what remains. Idempotent. */
 export function migrate(s: Settings): Settings {
   const out = { ...s };
+  if (!out.modelChosen && out.chatProvider === out.autoPicked) out.chatProvider = "dsh";
   // "Always use the model" is now just the default; "always Google" stays as translation assigned to Google.
   if (out.translateMode === "llm") out.translateMode = "auto";
   // Translation is always on; someone who turned it off wanted the original only.

@@ -5,6 +5,13 @@ function message(role, text, source) {
   return {id:randomUUID(), role, content:[{type:"text", text}], source};
 }
 
+const accountProvider = "deepseek-account";
+
+function accountChoice(models, current) {
+  const model = (current?.provider === accountProvider && models.find(item => item.id === current.model)) || models[0];
+  return model ? {provider: accountProvider, providerName: "DeepSeek Account", model: model.id, name: model.name} : null;
+}
+
 export function createHostModel(ctx) {
   let services;
   const jobs = new Map();
@@ -24,13 +31,24 @@ export function createHostModel(ctx) {
     const current = services?.agentDefaultModel.currentSelection();
     return current?.model && current?.provider ? {model:current.model, provider:current.provider} : null;
   }
+  async function accountDefault() {
+    const llm = services?.llm;
+    if (!llm?.listProviders().some(provider => provider.id === accountProvider)) return null;
+    try {
+      return accountChoice(await llm.listModels(accountProvider), selection());
+    } catch {
+      return null;
+    }
+  }
   return {
     selection,
+    accountDefault,
     async catalog() {
       if (!sessionController) throw Error("DSH model catalog is unavailable");
       const { groups, default: current, failures } = await sessionController.modelCatalog();
       return {
         current: current?.provider && current?.model ? {provider: current.provider, model: current.model} : null,
+        accountDefault: accountChoice(groups.find(group => group.id === accountProvider)?.models ?? [], current),
         groups: groups.map(({id, name, models}) => ({
           id, name, models: models.map(({id, name}) => ({id, name})),
         })),
@@ -39,24 +57,25 @@ export function createHostModel(ctx) {
     },
     cancel: id => jobs.get(id)?.abort(),
     async chat(args, emit) {
-      const chosen = args.provider?.dshModel;
-      const model = chosen == null ? selection() : {provider: chosen.provider, model: chosen.model};
-      if (!model) throw Error("请在 DSH 中登录并选择默认模型");
-      if (!services || typeof model.provider !== "string" || !model.provider || typeof model.model !== "string" || !model.model)
-        throw Error("Invalid DSH model selection");
       const {requestId, system, messages} = args;
       if (typeof requestId !== "string" || typeof system !== "string" || !Array.isArray(messages) || jobs.has(requestId))
         throw Error("Invalid SubCast chat request");
-      const history = [message("system", system, {kind:"system-prompt"})];
-      for (const turn of messages) {
-        if (!["user","assistant"].includes(turn?.role) || typeof turn.content !== "string") throw Error("Invalid chat history");
-        history.push(message(turn.role, turn.content, turn.role === "user" ? {kind:"user"} : {kind:"model", ...model}));
-      }
       const controller = new AbortController();
       jobs.set(requestId, controller);
       let answer = "";
       let block = "";
       try {
+        const chosen = args.provider?.preferDshAccount ? await accountDefault() : args.provider?.dshModel;
+        if (controller.signal.aborted) throw Error("Cancelled");
+        const model = chosen == null ? selection() : {provider: chosen.provider, model: chosen.model};
+        if (!model) throw Error("请在 DSH 中登录并选择默认模型");
+        if (!services || typeof model.provider !== "string" || !model.provider || typeof model.model !== "string" || !model.model)
+          throw Error("Invalid DSH model selection");
+        const history = [message("system", system, {kind:"system-prompt"})];
+        for (const turn of messages) {
+          if (!["user","assistant"].includes(turn?.role) || typeof turn.content !== "string") throw Error("Invalid chat history");
+          history.push(message(turn.role, turn.content, turn.role === "user" ? {kind:"user"} : {kind:"model", ...model}));
+        }
         const stream = services.llm.stream({...model, messages:history, signal:controller.signal, maxTokens:args.maxTokens});
         for await (const chunk of stream) {
           if (controller.signal.aborted) throw Error("Cancelled");

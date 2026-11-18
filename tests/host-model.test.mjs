@@ -4,6 +4,7 @@ import { createHostModel } from "../host/model.js";
 
 test("DSH follows the selected model, preserves turns and forwards text only once", async () => {
   let selected = "first", captured;
+  let accountModels = [{id:"flash", name:"DeepSeek Flash"}];
   const cleanups = [];
   const ctx = {inject(names, start) {
     if (names.includes("sessionController")) {
@@ -21,12 +22,16 @@ test("DSH follows the selected model, preserves turns and forwards text only onc
     }
     cleanups.push(start({
       agentDefaultModel:{currentSelection:() => ({provider:"deepseek", model:selected})},
-      llm:{async *stream(request) {
-        captured = request;
-        yield {type:"text-delta",text:"hello"};
-        yield {type:"block-end",block:{type:"text",text:"hello"}};
-        yield {type:"finish",reason:{kind:"stop"}};
-      }},
+      llm:{
+        listProviders: () => [{id:"deepseek-account"}],
+        listModels: async () => accountModels,
+        async *stream(request) {
+          captured = request;
+          yield {type:"text-delta",text:"hello"};
+          yield {type:"block-end",block:{type:"text",text:"hello"}};
+          yield {type:"finish",reason:{kind:"stop"}};
+        },
+      },
     }));
   }};
   const model = createHostModel(ctx);
@@ -53,7 +58,19 @@ test("DSH follows the selected model, preserves turns and forwards text only onc
   assert.equal(captured.provider, "other");
   assert.equal(captured.model, "second");
   assert.equal(model.selection().provider, "deepseek");
+  const preferAccount = {
+    requestId:"q3", system:"Try the account route", messages:[{role:"user", content:"Hello"}],
+    provider:{preferDshAccount:true},
+  };
+  assert.equal((await model.accountDefault()).model, "flash");
+  await model.chat(preferAccount, () => {});
+  assert.equal(captured.provider, "deepseek-account");
+  assert.equal(captured.model, "flash");
+  accountModels = [];
+  await model.chat(preferAccount, () => {});
+  assert.equal(captured.provider, "deepseek");
+  assert.equal(captured.model, "second");
   for (const cleanup of cleanups) cleanup();
   assert.equal(model.selection(), null);
-  await assert.rejects(model.chat({}, () => {}), /DSH/);
+  await assert.rejects(model.chat(preferAccount, () => {}), /DSH/);
 });

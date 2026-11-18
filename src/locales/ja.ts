@@ -1,5 +1,6 @@
 // Japanese interface text, keyed by the Simplified Chinese source. Run `npm run i18n` to find missing entries.
 const dict: Record<string, string> = {
+  "优先使用 DeepSeek 账号": "DeepSeek アカウントを優先",
   "DSH 模型": "DSH のモデル",
   "跟随 DSH 默认模型": "DSH の既定モデルに従う",
   "模型选择保存失败": "モデルの選択を保存できませんでした",

@@ -1,5 +1,6 @@
 // 繁體中文 interface text, keyed by the Simplified Chinese source. Generated with OpenCC (cn → twp) and hand-checked.
 const dict: Record<string, string> = {
+  "优先使用 DeepSeek 账号": "優先使用 DeepSeek 帳號",
   "DSH 模型": "DSH 模型",
   "跟随 DSH 默认模型": "跟隨 DSH 預設模型",
   "模型选择保存失败": "儲存模型選擇失敗",
