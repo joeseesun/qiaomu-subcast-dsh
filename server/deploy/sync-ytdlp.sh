@@ -14,7 +14,7 @@ work=$(mktemp -d); trap 'rm -rf "$work"' EXIT
 base="https://github.com/yt-dlp/yt-dlp/releases/download/$tag"
 curl -fsSL -o "$work/SHA2-256SUMS" "$base/SHA2-256SUMS"
 for f in "${FILES[@]}"; do curl -fsSL --retry 3 -o "$work/$f" "$base/$f"; done
-(cd "$work" && grep -E " (\*)?($(IFS='|'; echo "${FILES[*]}" | sed 's/\./\\./g'))\$" SHA2-256SUMS | sha256sum -c --strict -) 
+(cd "$work" && grep -E " (\*)?($(IFS='|'; echo "${FILES[*]}" | sed 's/\./\\./g'))\$" SHA2-256SUMS | sha256sum -c --strict -)
 chmod 644 "$work"/*
 for f in "${FILES[@]}" SHA2-256SUMS; do mv -f "$work/$f" "$DEST/$f"; done
 echo "$tag" > "$DEST/VERSION.tmp" && mv -f "$DEST/VERSION.tmp" "$DEST/VERSION"

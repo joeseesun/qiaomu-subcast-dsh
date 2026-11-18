@@ -66,5 +66,18 @@
       "title": "SubCast · 声渡",
       "description": "播客、YouTube、双语字幕与 AI 精读"
     }
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joeseesun/qiaomu-subcast-dsh.git"
+  },
+  "bugs": {
+    "url": "https://github.com/joeseesun/qiaomu-subcast-dsh/issues"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "podcast",
+    "subtitles"
+  ]
 }
