@@ -6,6 +6,46 @@ import { mkdtemp, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, basename } from "node:path";
 import { createSurface } from "../host/surface.js";
+import { apply } from "../host/index.js";
+
+test("desktop forwarding and web requests authorize their respective iframe parents", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "subcast-desktop-"));
+  const cleanups = [];
+  let route;
+  apply({
+    inject() {},
+    effect: (activate) => cleanups.push(activate()),
+    webServer: { register: (value) => { route = value; } },
+  }, {dataDir: directory});
+  const host = createServer(route.handler);
+  host.listen(0, "127.0.0.1");
+  await once(host, "listening");
+  t.after(async () => {
+    host.closeAllConnections();
+    host.close();
+    for (const dispose of cleanups) dispose?.();
+    await rm(directory, {recursive: true, force: true});
+  });
+
+  const origin = "http://127.0.0.1:" + host.address().port;
+  const connect = (panel, requestOrigin) => fetch(origin + route.path, {
+    method: "POST",
+    headers: {"x-subcast-panel": panel, ...(requestOrigin && {Origin: requestOrigin})},
+  });
+  assert.equal((await connect("1")).status, 403);
+  assert.equal((await connect("desktop", "null")).status, 403);
+  assert.equal((await connect("desktop", "https://example.com")).status, 403);
+  const desktop = await connect("desktop");
+  assert.equal(desktop.status, 200);
+  const {url} = await desktop.json();
+  const desktopPage = await fetch(url, {method: "HEAD"});
+  assert.match(desktopPage.headers.get("content-security-policy"), /^frame-ancestors dsh-app:\/\/app;/);
+  const web = await connect("1", origin);
+  assert.equal(web.status, 200);
+  assert.equal((await web.json()).url, url);
+  const sharedPage = await fetch(url, {method: "HEAD"});
+  assert.ok(sharedPage.headers.get("content-security-policy").startsWith(`frame-ancestors dsh-app://app ${origin};`));
+});
 
 // Exercise the actual packaged engine through the same HTTP transport as the panel.
 test("subscribe, read, download, seek, chat and reopen the saved library", {timeout: 30000}, async (t) => {

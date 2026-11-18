@@ -8,7 +8,8 @@ window.__ModuleLoader__.load({
       const [attempt, retry] = useState(0);
       useEffect(() => {
         const controller = new AbortController();
-        fetch("/qiaomu-subcast/connect", {method:"POST", headers:{"x-subcast-panel":"1"}, signal:controller.signal})
+        const panel = window.location.protocol === "dsh-app:" && window.location.host === "app" ? "desktop" : "1";
+        fetch("/qiaomu-subcast/connect", {method:"POST", headers:{"x-subcast-panel":panel}, signal:controller.signal})
           .then(async res => { if (!res.ok) throw Error(await res.text()); return res.json(); })
           .then(data => setUrl(data.url))
           .catch(err => { if (!controller.signal.aborted) setError(err.message); });

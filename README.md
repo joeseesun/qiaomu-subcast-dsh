@@ -1,6 +1,6 @@
 # SubCast · 声渡 for DeepSeek Harness
 
-本机已安装到独立的 subcast profile，可双击项目内的「启动声渡.command」打开。
+本机日用 DSH 已安装声渡，在桌面窗口的侧栏点击 **SubCast · 声渡** 即可打开。
 
 在 DSH 侧栏收听播客和 YouTube，跟读双语字幕，向当前单集提问。问答默认跟随 DSH 的模型选择。在 DSH 中选好 DeepSeek，即可使用同一套登录或 API Key。桌面版中手动配置的模型服务和本地 CLI 也可以在插件设置里选择。
 
@@ -12,7 +12,7 @@
 
 ```sh
 DSH="/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"
-"$DSH" plugin --profile desktop add "$PWD/qiaomu-subcast-dsh-0.1.0-darwin-arm64.tgz"
+"$DSH" plugin --profile desktop add "$PWD/qiaomu-subcast-dsh-0.1.1-darwin-arm64.tgz"
 ```
 
 重启对应的 DSH，在侧栏点 **SubCast · 声渡**。在顶部粘贴节目链接或 RSS 并按回车，点开单集。字幕准备好后切换到「问答」，回答中的时间戳可以跳回播放位置。原版四种界面语言可在声渡设置中切换。插件升级由 DSH 的包管理负责。

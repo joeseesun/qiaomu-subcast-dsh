@@ -46,7 +46,8 @@ export function createSurface(directory, hostModel) {
     for (const res of clients) res.write("event: " + event + "\ndata: " + JSON.stringify(payload) + "\n\n");
   };
   const engine = new Engine(directory, emit);
-  let origin, parent, opening, disposed = false;
+  const parents = new Set();
+  let origin, opening, disposed = false;
   const server = createServer((req, res) => {
     handle(req, res).catch(err => {
       if (!res.headersSent && !res.destroyed) json(res, err.code === "ENOENT" ? 404 : 400, {error:err.message});
@@ -57,7 +58,7 @@ export function createSurface(directory, hostModel) {
     const url = new URL(req.url, origin);
     res.setHeader("referrer-policy", "strict-origin-when-cross-origin");
     res.setHeader("x-content-type-options", "nosniff");
-    res.setHeader("content-security-policy", "frame-ancestors " + parent + "; object-src 'none'; base-uri 'none'; script-src 'self' https://www.youtube.com https://s.ytimg.com; worker-src 'self' blob:");
+    res.setHeader("content-security-policy", "frame-ancestors " + [...parents].join(" ") + "; object-src 'none'; base-uri 'none'; script-src 'self' https://www.youtube.com https://s.ytimg.com; worker-src 'self' blob:");
     if (url.pathname === "/rpc") {
       if (req.method !== "POST" || req.headers.origin !== origin || req.headers.authorization !== "Bearer " + key)
         return json(res, 403, {error:"Invalid session"});
@@ -103,8 +104,7 @@ export function createSurface(directory, hostModel) {
       server.once("error", fail).once("listening", ready).listen(port, "127.0.0.1");
     });
   }
-  async function open(parentOrigin) {
-    parent = parentOrigin;
+  async function open() {
     await mkdir(directory, {recursive:true, mode:0o700});
     const portFile = join(directory, "panel-port");
     const preferred = Number(await readFile(portFile, "utf8").catch(() => 0));
@@ -120,7 +120,8 @@ export function createSurface(directory, hostModel) {
   }
   return {
     connect(parentOrigin) {
-      return opening ??= open(parentOrigin).catch(err => { opening = undefined; throw err; });
+      parents.add(parentOrigin);
+      return opening ??= open().catch(err => { opening = undefined; throw err; });
     },
     dispose() {
       disposed = true;
