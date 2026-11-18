@@ -64,7 +64,8 @@ const fixture = createServer((req, res) => {
 
 let host, hostLog = "", browser;
 try {
-  assert.equal(cli("--version").trim(), manifest.engines.dsh);
+  const hostVersion = cli("--version").trim();
+  assert.ok(manifest.engines.dsh.split(" || ").includes(hostVersion), hostVersion);
   cli("--profile", profile, "--from-default-profile", "web", "--dump-config");
   cli("plugin", "--profile", profile, "add", archive);
   assert.match(cli("--profile", profile, "--dump-config"), /# == qiaomu-subcast-dsh/);
@@ -138,7 +139,7 @@ try {
     if (!played) await delay(250);
   }
   assert.ok(played, "The downloaded WAV did not play in SubCast");
-  console.log(`PASS ${process.platform}-${process.arch}: DSH ${actual.engines.dsh}, clean profile, RSS subscription, download and offline playback`);
+  console.log(`PASS ${process.platform}-${process.arch}: DSH ${hostVersion}, clean profile, RSS subscription, download and offline playback`);
 } catch (error) {
   console.error(hostLog.replace(/([?&]token=)[^\s]+/g, "$1[redacted]"));
   throw error;
