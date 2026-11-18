@@ -1,0 +1,31 @@
+[Unit]
+Description=SubCast shared transcripts API (subcast.qiaomu.ai/api)
+After=network.target
+
+[Service]
+Type=simple
+User=subcast
+Group=subcast
+WorkingDirectory=/opt/qiaomu-apps/subcast-api
+EnvironmentFile=/opt/qiaomu-apps/subcast-api/.env
+ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning src/server.js
+Restart=always
+RestartSec=3
+TimeoutStopSec=15
+
+# Hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/opt/qiaomu-apps/subcast-api/data
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target
