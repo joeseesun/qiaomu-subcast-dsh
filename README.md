@@ -12,15 +12,46 @@ Listen to podcasts and YouTube in DSH, follow bilingual transcripts, and ask que
 
 ## 安装
 
-预构建包适用于 **Apple Silicon Mac（macOS 15 或更高版本）** 和 **DeepSeek Harness 0.2.2-rc.3**。安装时沿用 DSH 已有的 `desktop` profile，无需本地编译。
+预构建包支持 **DeepSeek Harness 0.2.2-rc.3**。从 [GitHub Release](https://github.com/joeseesun/qiaomu-subcast-dsh/releases/latest) 下载对应系统和架构的 `.tgz`。
+
+| 平台 | 安装包后缀 | 安装环境 |
+| --- | --- | --- |
+| Windows x64 | `win32-x64.tgz` | Windows 上的 DSH Web，或使用 DSH 桌面版随附的 CLI |
+| Linux x64 | `linux-x64.tgz` | 本机 DSH Web，Ubuntu 22.04 或同等运行库 |
+| Linux ARM64 | `linux-arm64.tgz` | 本机 DSH Web，Ubuntu 24.04 或同等运行库 |
+| Apple Silicon Mac | `darwin-arm64.tgz` | macOS 15+，DSH 桌面版或本机 Web |
+
+**Windows、Linux 和 macOS 的 DSH Web**
+
+使用 Node.js 24 安装 DSH CLI 和 pnpm。已有 `web` profile 时可直接安装；首次使用可先启动一次 DSH Web。
 
 ```sh
-curl -fL -O https://github.com/joeseesun/qiaomu-subcast-dsh/releases/download/v0.1.3/qiaomu-subcast-dsh-0.1.3-darwin-arm64.tgz
-DSH="/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"
-"$DSH" plugin --profile desktop add ./qiaomu-subcast-dsh-0.1.3-darwin-arm64.tgz
+npm install -g @deepseek-ai/dsh@0.2.2-rc.3 pnpm@11.28.5
+dsh --profile web
 ```
 
-完全退出并重新打开 DSH，在侧栏点击 **SubCast · 声渡**。本机 DSH Web 用户也可用同一安装包，将 `desktop` 换成正在使用的 Web profile，再重启该 profile。
+在下载目录运行相应命令。使用其他 Web profile 时，将 `web` 改为对应的名称。
+
+```powershell
+dsh plugin --profile web add .\qiaomu-subcast-dsh-0.1.4-win32-x64.tgz
+```
+
+```sh
+dsh plugin --profile web add ./qiaomu-subcast-dsh-0.1.4-linux-x64.tgz
+```
+
+ARM64 Linux 和 Apple Silicon Mac 用户用表中对应的文件名替换命令中的包名。Linux 上的引擎使用系统的 `libdbus-1.so.3`，可通过发行版的 `libdbus-1-3` 或等价软件包安装。
+
+**DSH 桌面版**
+
+使用桌面版随附的 CLI，把安装包加入已有的 `desktop` profile。Windows 可使用 DSH 桌面菜单安装的 `dsh` 命令，并从上面的 PowerShell 命令将 `--profile web` 改为 `--profile desktop`。macOS 可运行以下命令。
+
+```sh
+DSH="/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"
+"$DSH" plugin --profile desktop add ./qiaomu-subcast-dsh-0.1.4-darwin-arm64.tgz
+```
+
+重新启动该 profile（桌面版需完全退出后重新打开），在侧栏点击 **SubCast · 声渡**。
 
 ## 使用声渡
 
@@ -64,7 +95,7 @@ python3 scripts/import-library.py \
 
 </details>
 
-卸载时运行 `"$DSH" plugin --profile desktop remove qiaomu-subcast-dsh`，然后重启 DSH。数据目录可留作备份或迁移，确定不再需要时再单独删除。
+卸载时运行 `dsh plugin --profile web remove qiaomu-subcast-dsh`，将 `web` 替换为安装时使用的 profile。从桌面版卸载时使用其随附的 CLI。数据目录可留作备份或迁移，确定不再需要时再单独删除。
 
 ## 开发与来源
 
@@ -79,13 +110,10 @@ npm test
 npm run i18n -- --strict
 (cd native && cargo test --release --locked)
 npm --prefix server test
-npm pack --ignore-scripts
+npm run package:platform -- artifacts
 ```
 
-| 环境 | 验证范围 |
-| --- | --- |
-| Apple Silicon macOS 15+ · DSH 0.2.2-rc.3 Desktop / 本机 Web | 已验证侧栏、订阅、字幕、离线播放和 DSH 模型调用。|
-| Intel Mac、Windows、Linux 和其他 DSH 版本 | 当前公开包的兼容范围为 Apple Silicon 和上述 DSH 版本。|
+发布验收在 Windows x64、Linux x64、Linux ARM64 和 Apple Silicon 的原生 runner 上运行。每个包都用干净的 DSH Web profile 验证侧栏、RSS 订阅、下载和离线播放。这组测试使用本地 WAV，并在临时 profile 中关闭宿主的模型登录引导。AI 服务和外部站点取决于用户配置与网络环境。
 
 插件改编自 [SubCast 0.2.8](https://github.com/joeseesun/subcast/tree/ca578c5ed201e5e18bab63afd4d72dcf515532cb)，沿用 [AGPL-3.0-only](LICENSE)。服务商图标及其许可见 [图标来源](src/assets/providers/LICENSE.md)。欢迎提交可复现的问题和改进。 [贡献说明](CONTRIBUTING.md) · [安全报告](SECURITY.md)
 
@@ -93,10 +121,10 @@ npm pack --ignore-scripts
 
 SubCast is an open-source DSH plugin for podcasts, YouTube, bilingual transcripts, offline audio and episode Q&A. Q&A and guides prefer the DeepSeek account signed in to DSH and fall back to the host default when that account is unavailable. You can also pick a different model in SubCast.
 
-**Install.** Download the [Apple Silicon package](https://github.com/joeseesun/qiaomu-subcast-dsh/releases/latest) and run the two desktop CLI steps in the [installation section](#安装). Restart DSH 0.2.2-rc.3 and open **SubCast · 声渡** in the sidebar. The same package works with an existing local Web profile of that version. Paste an RSS feed or episode URL, open the episode and select **Q&A** when a transcript is ready.
+**Install.** Select the [release package](https://github.com/joeseesun/qiaomu-subcast-dsh/releases/latest) for Windows x64, Linux x64 or ARM64, or Apple Silicon macOS 15+. Use the [installation commands](#安装) with DSH 0.2.2-rc.3. Restart the profile and open **SubCast · 声渡** in the sidebar. The release matrix installs each package into a clean DSH Web profile and exercises RSS subscription, download and offline playback on its native OS.
 
 **Data and privacy.** The library stays under `${DSH_HOME:-$HOME/.dsh}/plugin-data/qiaomu-subcast-dsh`. Selected model providers receive the prompts and transcript excerpts used in requests. Cloud transcription sends audio to the configured provider. Anonymous sharing of generated transcripts, translations and guides is enabled by default and can be turned off in **Settings → General**.
 
-**Uninstall.** Run `"$DSH" plugin --profile desktop remove qiaomu-subcast-dsh` and restart DSH. Keep the data directory if you intend to reinstall or migrate.
+**Uninstall.** Run `dsh plugin --profile web remove qiaomu-subcast-dsh` with the profile you used for installation, then restart DSH. Keep the data directory if you intend to reinstall or migrate.
 
-The supplied binary targets Apple Silicon macOS 15+ and DSH 0.2.2-rc.3. The source is based on [SubCast](https://github.com/joeseesun/subcast) and is available under [AGPL-3.0-only](LICENSE).
+The source is based on [SubCast](https://github.com/joeseesun/subcast) and is available under [AGPL-3.0-only](LICENSE).

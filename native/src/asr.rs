@@ -243,11 +243,16 @@ fn adopt_found(data: &Path) {
             if let Some(d) = real.parent() { SEEN_ELSEWHERE.lock().unwrap().push(Elsewhere { app: app_of(d), format: "GGUF（llama.cpp 分体）".into() }); }
             continue;
         }
-        #[cfg(unix)]
-        let _ = std::os::unix::fs::symlink(&real, &dest);
-        #[cfg(windows)]
-        let _ = std::fs::hard_link(&real, &dest).or_else(|_| std::os::windows::fs::symlink_file(&real, &dest));
+        let _ = link_model(&real, &dest);
     }
+}
+
+fn link_model(source: &Path, destination: &Path) -> std::io::Result<()> {
+    #[cfg(unix)]
+    return std::os::unix::fs::symlink(source, destination);
+    #[cfg(windows)]
+    return std::fs::hard_link(source, destination)
+        .or_else(|_| std::os::windows::fs::symlink_file(source, destination));
 }
 
 /// Streams `url` into `dest` (via a .part file), reporting (received, total). Stops when `cancel` is set.
@@ -1038,7 +1043,7 @@ mod scan_tests {
         for src in found {
             let name = src.file_name().unwrap().to_string_lossy().to_string();
             let Some(engine) = engine_of(&name) else { continue };
-            if looks_like_model(&src, engine) { std::os::unix::fs::symlink(&src, models_dir(&data).join(&name)).unwrap(); }
+            if looks_like_model(&src, engine) { link_model(&src, &models_dir(&data).join(&name)).unwrap(); }
         }
         let list = list_models(&data);
         let medium = list.iter().find(|m| m.id == "file:ggml-medium.bin").expect("found model listed");

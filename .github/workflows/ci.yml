@@ -4,26 +4,127 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Optional existing release tag to verify through an anonymous download
+        type: string
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ inputs.release_tag || 'build' }}
+  cancel-in-progress: true
+
 jobs:
-  apple-silicon:
-    name: Build and test on Apple Silicon
-    runs-on: macos-15
-    timeout-minutes: 20
+  build:
+    name: ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {runner: macos-15, platform: darwin-arm64}
+          - {runner: windows-2022, platform: win32-x64}
+          - {runner: ubuntu-22.04, platform: linux-x64}
+          - {runner: ubuntu-24.04-arm, platform: linux-arm64}
+    defaults:
+      run:
+        shell: bash
+    env:
+      PACKAGE_PLATFORM: ${{ matrix.platform }}
+      DSH_VERSION: 0.2.2-rc.3
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: '24'
+          node-version: '24.21.0'
           cache: npm
-      - run: npm ci
-      - run: npm run i18n -- --strict
-      - run: npm run build
-      - run: npm test
-      - run: cargo test --release --locked
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux' && inputs.release_tag == ''
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake libclang-dev libdbus-1-dev pkg-config
+      - name: Stage the Windows CRT for CrispASR
+        if: runner.os == 'Windows' && inputs.release_tag == ''
+        shell: pwsh
+        run: |
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
+          $redist = Get-ChildItem "$vs\VC\Redist\MSVC" -Directory | Where-Object Name -match '^\d' | Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1
+          $crt = Get-ChildItem "$($redist.FullName)\x64" -Directory -Filter "Microsoft.VC*.CRT" | Select-Object -First 1
+          $omp = Get-ChildItem "$($redist.FullName)\x64" -Directory -Filter "Microsoft.VC*.OpenMP" | Select-Object -First 1
+          $dest = Join-Path $env:RUNNER_TEMP "subcast-vcrt"
+          New-Item -ItemType Directory $dest | Out-Null
+          foreach ($file in "msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll") {
+            Copy-Item (Join-Path $crt.FullName $file) $dest
+          }
+          Copy-Item (Join-Path $omp.FullName "vcomp140.dll") $dest
+          "SUBCAST_VCRT_DIR=$dest" >> $env:GITHUB_ENV
+          if (Test-Path "C:\Program Files\LLVM\bin\libclang.dll") {
+            "LIBCLANG_PATH=C:\Program Files\LLVM\bin" >> $env:GITHUB_ENV
+          }
+      - name: Build, test and package
+        if: inputs.release_tag == ''
+        run: |
+          npm ci
+          npm run i18n -- --strict
+          npm run build
+          npm test
+          npm run package:platform -- artifacts
+      - name: Check the Windows engine DLL imports
+        if: runner.os == 'Windows' && inputs.release_tag == ''
+        shell: pwsh
+        run: |
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
+          $tool = Get-ChildItem "$vs\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Select-Object -First 1
+          $imports = & $tool.FullName /DEPENDENTS bin/win32-x64.exe | Out-String
+          if ($LASTEXITCODE -ne 0) { throw "Could not read engine imports" }
+          if ($imports -match '(?i)(msvcp140\w*|vcruntime140\w*|vcomp140)\.dll') {
+            throw "The engine imports the dynamic Visual C++ runtime"
+          }
+      - name: Read the public package
+        if: inputs.release_tag != ''
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          version=$(node -p 'require("./package.json").version')
+          test "$RELEASE_TAG" = "v$version"
+          mkdir -p artifacts
+          package="qiaomu-subcast-dsh-$version-$PACKAGE_PLATFORM.tgz"
+          base="https://github.com/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG"
+          curl -fLsS --retry 3 -o "artifacts/$package" "$base/$package"
+          curl -fLsS --retry 3 -o artifacts/SHA256SUMS "$base/SHA256SUMS"
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            import { createHash } from "node:crypto";
+            import { strictEqual, ok } from "node:assert";
+            const file = process.argv[1];
+            const sum = readFileSync("artifacts/SHA256SUMS", "utf8").split(/\r?\n/).find(line => line.endsWith("  " + file));
+            ok(sum);
+            strictEqual(createHash("sha256").update(readFileSync("artifacts/" + file)).digest("hex"), sum.split(" ")[0]);
+          ' "$package"
+      - name: Install the pinned DSH and Chromium
+        run: |
+          npm install --prefix .qa-tools --no-package-lock --no-save "@deepseek-ai/dsh@$DSH_VERSION" pnpm@11.28.5 playwright@1.65.1
+          if [[ "$RUNNER_OS" = Linux ]]; then
+            node .qa-tools/node_modules/playwright/cli.js install --with-deps chromium
+          else
+            node .qa-tools/node_modules/playwright/cli.js install chromium
+          fi
+      - name: Clean profile install and offline playback
+        run: node scripts/smoke-dsh.mjs .qa-tools artifacts
+      - name: Test the native engine
+        if: inputs.release_tag == ''
         working-directory: native
-      - run: npm --prefix server test
-      - run: npm pack --ignore-scripts
+        run: cargo test --release --locked
+      - name: Test the shared-transcript server
+        if: matrix.platform == 'linux-x64' && inputs.release_tag == ''
+        run: npm --prefix server test
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: inputs.release_tag == ''
+        with:
+          name: package-${{ matrix.platform }}
+          path: artifacts/*.tgz
+          if-no-files-found: error
