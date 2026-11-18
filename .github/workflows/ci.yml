@@ -72,8 +72,6 @@ jobs:
           npm run i18n -- --strict
           npm run build
           npm test
-          (cd native && cargo test --release --locked)
-          npm --prefix server test
           npm run package:platform -- artifacts
       - name: Check the Windows engine DLL imports
         if: runner.os == 'Windows' && inputs.release_tag == ''
@@ -117,6 +115,13 @@ jobs:
           fi
       - name: Clean profile install and offline playback
         run: node scripts/smoke-dsh.mjs .qa-tools artifacts
+      - name: Test the native engine
+        if: inputs.release_tag == ''
+        working-directory: native
+        run: cargo test --release --locked
+      - name: Test the shared-transcript server
+        if: matrix.platform == 'linux-x64' && inputs.release_tag == ''
+        run: npm --prefix server test
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         if: inputs.release_tag == ''
         with:
