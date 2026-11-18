@@ -4,3 +4,5 @@ bin/
 native/target/
 *.tgz
 .DS_Store
+.qa-tools/
+artifacts/
