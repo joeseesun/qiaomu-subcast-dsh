@@ -130,7 +130,7 @@ try {
   await audio.waitFor({state: "attached"});
   let played = false;
   for (let attempt = 0; attempt < 48 && !played; attempt++) {
-    played = await audio.evaluate((element) => new URL(element.currentSrc).pathname.startsWith("/media/") && element.currentTime > 0.4);
+    played = await audio.evaluate((element) => element.currentTime > 0.4 && new URL(element.currentSrc).pathname.startsWith("/media/"));
     if (!played) await delay(250);
   }
   assert.ok(played, "The downloaded WAV did not play in SubCast");

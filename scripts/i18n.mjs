@@ -4,12 +4,12 @@
 //   node scripts/i18n.mjs --strict   exit 1 when anything is missing (for CI)
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const CJK = /[\u3400-\u9fff]/;
 const walk = (dir) => readdirSync(dir).flatMap((f) => { const p = join(dir, f); return statSync(p).isDirectory() ? walk(p) : [p]; });
-const front = walk(join(root, "src")).filter((f) => /\.(tsx?)$/.test(f) && !f.includes("/locales/"));
+const front = walk(join(root, "src")).filter((f) => /\.(tsx?)$/.test(f) && !f.includes(`${sep}locales${sep}`));
 const unescape = (s) => s.replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\`/g, "`").replace(/\\\\/g, "\\");
 
 const keys = new Map(); // key -> where
@@ -24,7 +24,7 @@ for (const file of front) {
   for (const m of src.matchAll(/\b(?:t|tk)\(\s*(?:"((?:[^"\\\n]|\\.)*)"|`((?:[^`\\$]|\\.)*)`)/g)) add(unescape(m[1] ?? m[2]), rel);
   // tx("context", "源文") looks up "源文@context" first, so both keys are needed.
   for (const m of src.matchAll(/\btx\(\s*"(\w+)",\s*"((?:[^"\\\n]|\\.)*)"/g)) { add(unescape(m[2]), rel); add(`${unescape(m[2])}@${m[1]}`, rel); }
-  if (rel.endsWith("lib/picks.ts")) {
+  if (rel === join("src", "lib", "picks.ts")) {
     for (const m of src.matchAll(/\bintro: "([^"]+)"/g)) add(m[1], rel);
     for (const m of src.matchAll(/\bzh: "([^"]+)"/g)) if (!keys.has(m[1])) { add(m[1], rel); zhOnly.add(m[1]); }
     continue;
