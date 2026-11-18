@@ -12,7 +12,7 @@ Listen to podcasts and YouTube in DSH, follow bilingual transcripts, and ask que
 
 ## 安装
 
-预构建包支持 **DeepSeek Harness 0.2.2-rc.3**。从 [GitHub Release](https://github.com/joeseesun/qiaomu-subcast-dsh/releases/latest) 下载对应系统和架构的 `.tgz`。
+预构建包支持 **DeepSeek Harness 0.2.2-rc.3 和 0.2.2-rc.5**。从 [GitHub Release](https://github.com/joeseesun/qiaomu-subcast-dsh/releases/latest) 下载对应系统和架构的 `.tgz`。
 
 | 平台 | 安装包后缀 | 安装环境 |
 | --- | --- | --- |
@@ -26,7 +26,7 @@ Listen to podcasts and YouTube in DSH, follow bilingual transcripts, and ask que
 使用 Node.js 24 安装 DSH CLI 和 pnpm。已有 `web` profile 时可直接安装；首次使用可先启动一次 DSH Web。
 
 ```sh
-npm install -g @deepseek-ai/dsh@0.2.2-rc.3 pnpm@11.28.5
+npm install -g @deepseek-ai/dsh@0.2.2-rc.5 pnpm@11.28.5
 dsh --profile web
 ```
 
@@ -121,7 +121,7 @@ npm run package:platform -- artifacts
 
 SubCast is an open-source DSH plugin for podcasts, YouTube, bilingual transcripts, offline audio and episode Q&A. Q&A and guides prefer the DeepSeek account signed in to DSH and fall back to the host default when that account is unavailable. You can also pick a different model in SubCast.
 
-**Install.** Select the [release package](https://github.com/joeseesun/qiaomu-subcast-dsh/releases/latest) for Windows x64, Linux x64 or ARM64, or Apple Silicon macOS 15+. Use the [installation commands](#安装) with DSH 0.2.2-rc.3. Restart the profile and open **SubCast · 声渡** in the sidebar. The release matrix installs each package into a clean DSH Web profile and exercises RSS subscription, download and offline playback on its native OS.
+**Install.** Select the [release package](https://github.com/joeseesun/qiaomu-subcast-dsh/releases/latest) for Windows x64, Linux x64 or ARM64, or Apple Silicon macOS 15+. Use the [installation commands](#安装) with DSH 0.2.2-rc.3 or 0.2.2-rc.5. Restart the profile and open **SubCast · 声渡** in the sidebar. The release matrix installs each package into a clean DSH Web profile and exercises RSS subscription, download and offline playback on its native OS.
 
 **Data and privacy.** The library stays under `${DSH_HOME:-$HOME/.dsh}/plugin-data/qiaomu-subcast-dsh`. Selected model providers receive the prompts and transcript excerpts used in requests. Cloud transcription sends audio to the configured provider. Anonymous sharing of generated transcripts, translations and guides is enabled by default and can be turned off in **Settings → General**.
 
