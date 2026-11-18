@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawn, execFileSync } from "node:child_process";
 import { once } from "node:events";
 import { createServer } from "node:http";
-import { readFile, mkdtemp, rm } from "node:fs/promises";
+import { readFile, writeFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 import { createRequire } from "node:module";
@@ -68,7 +68,11 @@ try {
   cli("--profile", profile, "--from-default-profile", "web", "--dump-config");
   cli("plugin", "--profile", profile, "add", archive);
   assert.match(cli("--profile", profile, "--dump-config"), /# == qiaomu-subcast-dsh/);
-  const installed = join(directory, "profiles", profile, "node_modules", manifest.name);
+  const profileDir = join(directory, "profiles", profile);
+  // Exercise playback in the disposable profile without a real model account.
+  await writeFile(join(profileDir, "cordis.patch.yml"),
+    "- id: ui-settings-models\n  config:\n    credentialOnboarding: false\n");
+  const installed = join(profileDir, "node_modules", manifest.name);
   const actual = JSON.parse(await readFile(join(installed, "package.json"), "utf8"));
   assert.equal(actual.version, manifest.version);
   const binary = `${process.platform}-${process.arch}${process.platform === "win32" ? ".exe" : ""}`;

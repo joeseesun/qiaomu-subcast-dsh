@@ -113,7 +113,7 @@ npm --prefix server test
 npm run package:platform -- artifacts
 ```
 
-发布验收在 Windows x64、Linux x64、Linux ARM64 和 Apple Silicon 的原生 runner 上运行。每个包都用干净的 DSH Web profile 验证侧栏、RSS 订阅、下载和离线播放。这组测试使用本地 WAV 夹具。AI 服务和外部站点取决于用户配置与网络环境。
+发布验收在 Windows x64、Linux x64、Linux ARM64 和 Apple Silicon 的原生 runner 上运行。每个包都用干净的 DSH Web profile 验证侧栏、RSS 订阅、下载和离线播放。这组测试使用本地 WAV，并在临时 profile 中关闭宿主的模型登录引导。AI 服务和外部站点取决于用户配置与网络环境。
 
 插件改编自 [SubCast 0.2.8](https://github.com/joeseesun/subcast/tree/ca578c5ed201e5e18bab63afd4d72dcf515532cb)，沿用 [AGPL-3.0-only](LICENSE)。服务商图标及其许可见 [图标来源](src/assets/providers/LICENSE.md)。欢迎提交可复现的问题和改进。 [贡献说明](CONTRIBUTING.md) · [安全报告](SECURITY.md)
 

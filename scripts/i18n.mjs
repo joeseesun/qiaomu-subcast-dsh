@@ -30,7 +30,7 @@ for (const file of front) {
     continue;
   }
   let skipping = false; // between "// i18n-ignore-start" and "// i18n-ignore-end" (prompts sent to models)
-  src.split("\n").forEach((line, i) => {
+  src.split(/\r?\n/).forEach((line, i) => {
     if (line.includes("i18n-ignore-start")) skipping = true;
     if (line.includes("i18n-ignore-end")) { skipping = false; return; }
     const code = line.replace(/\/\/.*$/, "");
@@ -44,7 +44,7 @@ for (const file of front) {
 const RUST_SKIP = /INSERT |^章节：\{\}$|^\[\\w|\(\?i\)|感谢观看|谢谢观看|请不吝点赞|字幕by|字幕由|^ · 文稿$/;
 for (const file of walk(join(root, "native/src")).filter((f) => f.endsWith(".rs"))) {
   const src = readFileSync(file, "utf8").split("#[cfg(test)]")[0];
-  for (const line of src.split("\n")) {
+  for (const line of src.split(/\r?\n/)) {
     if (/^\s*\/\//.test(line) || /title_for|cover_for|=> "/.test(line) || line.includes("i18n-ignore")) continue;
     for (const m of line.matchAll(/"((?:[^"\\]|\\.)*[\u3400-\u9fff](?:[^"\\]|\\.)*)"/g)) if (!RUST_SKIP.test(m[1])) add(unescape(m[1]), relative(root, file));
   }
