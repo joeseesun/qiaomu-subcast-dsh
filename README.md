@@ -12,7 +12,7 @@ Listen to podcasts and YouTube in DSH, follow bilingual transcripts, and ask que
 
 ## 安装
 
-预构建包适用于 **Apple Silicon Mac** 和 **DeepSeek Harness 0.2.2-rc.3**。安装时沿用 DSH 已有的 `desktop` profile，无需本地编译。
+预构建包适用于 **Apple Silicon Mac（macOS 15 或更高版本）** 和 **DeepSeek Harness 0.2.2-rc.3**。安装时沿用 DSH 已有的 `desktop` profile，无需本地编译。
 
 ```sh
 curl -fL -O https://github.com/joeseesun/qiaomu-subcast-dsh/releases/download/v0.1.3/qiaomu-subcast-dsh-0.1.3-darwin-arm64.tgz
@@ -84,7 +84,7 @@ npm pack --ignore-scripts
 
 | 环境 | 验证范围 |
 | --- | --- |
-| Apple Silicon macOS · DSH 0.2.2-rc.3 Desktop / 本机 Web | 已验证侧栏、订阅、字幕、离线播放和 DSH 模型调用。|
+| Apple Silicon macOS 15+ · DSH 0.2.2-rc.3 Desktop / 本机 Web | 已验证侧栏、订阅、字幕、离线播放和 DSH 模型调用。|
 | Intel Mac、Windows、Linux 和其他 DSH 版本 | 当前公开包的兼容范围为 Apple Silicon 和上述 DSH 版本。|
 
 插件改编自 [SubCast 0.2.8](https://github.com/joeseesun/subcast/tree/ca578c5ed201e5e18bab63afd4d72dcf515532cb)，沿用 [AGPL-3.0-only](LICENSE)。服务商图标及其许可见 [图标来源](src/assets/providers/LICENSE.md)。欢迎提交可复现的问题和改进。 [贡献说明](CONTRIBUTING.md) · [安全报告](SECURITY.md)
@@ -99,4 +99,4 @@ SubCast is an open-source DSH plugin for podcasts, YouTube, bilingual transcript
 
 **Uninstall.** Run `"$DSH" plugin --profile desktop remove qiaomu-subcast-dsh` and restart DSH. Keep the data directory if you intend to reinstall or migrate.
 
-The supplied binary targets Apple Silicon macOS and DSH 0.2.2-rc.3. The source is based on [SubCast](https://github.com/joeseesun/subcast) and is available under [AGPL-3.0-only](LICENSE).
+The supplied binary targets Apple Silicon macOS 15+ and DSH 0.2.2-rc.3. The source is based on [SubCast](https://github.com/joeseesun/subcast) and is available under [AGPL-3.0-only](LICENSE).
