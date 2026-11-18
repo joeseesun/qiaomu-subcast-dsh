@@ -77,7 +77,7 @@ npm ci
 npm run build
 npm test
 npm run i18n -- --strict
-cargo test --release --locked --manifest-path native/Cargo.toml
+(cd native && cargo test --release --locked)
 npm --prefix server test
 npm pack --ignore-scripts
 ```
