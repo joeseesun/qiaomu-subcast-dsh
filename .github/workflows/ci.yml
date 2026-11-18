@@ -75,6 +75,17 @@ jobs:
           (cd native && cargo test --release --locked)
           npm --prefix server test
           npm run package:platform -- artifacts
+      - name: Check the Windows engine DLL imports
+        if: runner.os == 'Windows' && inputs.release_tag == ''
+        shell: pwsh
+        run: |
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
+          $tool = Get-ChildItem "$vs\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Select-Object -First 1
+          $imports = & $tool.FullName /DEPENDENTS bin/win32-x64.exe | Out-String
+          if ($LASTEXITCODE -ne 0) { throw "Could not read engine imports" }
+          if ($imports -match '(?i)(msvcp140\w*|vcruntime140\w*|vcomp140)\.dll') {
+            throw "The engine imports the dynamic Visual C++ runtime"
+          }
       - name: Read the public package
         if: inputs.release_tag != ''
         env:
